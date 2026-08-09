@@ -1,1 +1,1 @@
-gcc.exe -c src/Requests/Request.cpp src/Requests/Response.cpp -lws2_32
+g++.exe src/Requests/*.cpp -o Sample.exe -lws2_32

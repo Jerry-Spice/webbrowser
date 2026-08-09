@@ -1,3 +1,7 @@
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0600
+#endif
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -9,6 +13,7 @@
 
 #include <winsock2.h>
 #include <ws2tcpip.h>
+
 // Make sure to link Ws2_32.lib when compiling
 boolean initialized_winsock = false;
 int initialize_winsock() {
@@ -36,6 +41,10 @@ SOCKET connect_to_url(std::string url, std::string port) {
 
     SOCKET connected_socket = INVALID_SOCKET;
     ptr = result;
+    if (ptr == NULL) {
+        std::cout << "Invalid url: '" << url << ":" << port << "'" << std::endl;
+        return INVALID_SOCKET;
+    }
     connected_socket = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
     if (connected_socket == INVALID_SOCKET) {
         WSACleanup();
@@ -73,7 +82,8 @@ int recieve_buffer(SOCKET socket, std::string* buffer) {
     char temp_buffer[4096]; // 1 Page of memory
     int iResult;
     do {
-        iResult = recv(socket, temp_buffer, 4096, 0);
+        iResult = recv(socket, temp_buffer, 4095, 0);
+        temp_buffer[4095] = '\0';
         *buffer += temp_buffer;
     } while (iResult > 0);
     return buffer->length();
@@ -117,67 +127,11 @@ std::string request_to_string(Request* request) {
 
 Response* string_to_response(std::string response) {
 
-    // Start line
-    std::string version = "";
-    std::string response_code_string = "";
-    int response_code = -1;
-    std::string message = "";
-
-    std::string::iterator it = response.begin();
-    std::string::iterator start = it;
-    std::string::iterator dest = version.begin();
-    int mode = 0;
-    while ((*it) != '\n') {
-        if ((*it) == ' ') {
-            if (mode == 0) {
-                dest = version.begin();
-            } else if (mode == 1) {
-                dest = response_code_string.begin();
-            } else {
-                dest = message.begin();
-            }
-            std::copy(start, --it, dest);
-            it++; // To counteract the '--it'
-            start = it + 1;
-            mode++;
-        }
-        it++;
-    }
-    std::copy(start, --it, dest);
-    // Final copy needed since the response ends the message in a newline
-    it++; // To counteract the '--it'
-    start = it + 1;
-    it++; // To move forward past the newline
-
-    // Headers
+    std::string version;
+    int response_code;
+    std::string message;
     std::vector<key_value*> headers;
-    int newlines_in_sequence = 0;
-    std::string key_buffer = "";
-    std::string value_buffer = "";
-    start = it;
-    while (newlines_in_sequence < 2) {
-        if ((*it) == '\n') {
-            newlines_in_sequence ++;
-            std::copy(start, --it, value_buffer);
-            it++; // To counteract the --it
-            key_value* kv = new key_value{key_buffer, value_buffer};
-            headers.push_back(kv);
-        } else if ((*it) == ':') {
-            std::copy(start, --it, key_buffer);
-            it++; // To counteract the --it
-        }
-        it++;
-    }
-
-    // Empty Line
-    it++;
-    start = it;
-    // Body
-    std::string body = "";
-    while ((*it) != EOF) {
-        it++;
-    }
-    std::copy(start, --it, body);
+    std::string body;
 
     return new Response(version, response_code, message, headers, body);
 }
@@ -229,4 +183,17 @@ std::shared_ptr<Response> Request::send() {
     // Response* response = string_as_response(response_as_string);
 
     close_socket(socket);
+    return NULL;
+}
+
+// Main
+
+int main() {
+    std::vector<key_value*> headers;
+    headers.push_back( new key_value{"Host", "www.google.com"});
+    headers.push_back(new key_value{"User-Agent", "JLBrowser/0.1"});
+    headers.push_back(new key_value{"Connection", "close"});
+    Request r = Request("GET", "www.google.com", headers, "");
+    r.send();
+    return 0;
 }
