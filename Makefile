@@ -4,6 +4,7 @@ all:
 	    src/Requests/Request.cpp \
 	    src/Requests/Response.cpp \
 	    src/Requests/Sockets.cpp \
+		-g \
 	    -o Browser.exe \
 	    -I"C:/Program Files/OpenSSL-Win64/include" \
 	    "C:/Program Files/OpenSSL-Win64/lib/VC/x64/MD/libssl.lib" \

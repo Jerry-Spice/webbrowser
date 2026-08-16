@@ -1,3 +1,4 @@
+#include <iostream>
 #include <vector>
 #include <string>
 
@@ -22,6 +23,8 @@ Response::~Response() {
 }
 
 Response* string_to_response(std::string response) {
+    // std::cout << response << std::endl;
+    // std::cout << "----------" << std::endl;
      // TODO: There's a bug with the key-value parsing. It doesn't populate properly
     std::string version = "";
     std::string response_buffer = "";
@@ -48,25 +51,41 @@ Response* string_to_response(std::string response) {
         }
         it++;
     }
-    it++;
-    // std::cout << response_buffer << std::endl;
     response_code = std::stoi(response_buffer);
 
     // Headers
-    it++;
-    start = it;
+    it+= 2;
+    // if (*it == '\r') {
+    //    std::cout << "\\r" << std::endl;
+    // } else if (*it == '\n') {
+    //     std::cout << "\\n" << std::endl;
+    // } else {
+    //     std::cout << *it << std::endl;
+    // }
     int newlines_in_sequence = 0;
     std::string key_buffer = "";
     std::string value_buffer = "";
     int mode = 0;
-    while (newlines_in_sequence < 2) {
-        if (*it != '\r' && *(it + 1) != '\n') {
+    while (newlines_in_sequence < 1) {
+        // if (*it == '\r') {
+        //     std::cout << "[" << mode << "] "  << "\\r" << std::endl;
+        // } else if (*it == '\n') {
+        //     std::cout << "[" << mode << "] "  << "\\n" << std::endl;
+        // } else {
+        //     std::cout << "[" << mode << "] " << *it << std::endl;
+        // }
+        if (*it == '\r' && *(it + 1) == '\n') {
             mode = 0;
-            newlines_in_sequence++;
-            key_value* kv = new key_value{key_buffer, value_buffer};
-            headers.push_back(kv);
-            key_buffer = "";
-            value_buffer = "";
+            if (key_buffer.compare("") == 0) {
+                newlines_in_sequence++;
+            } else {
+                key_value* kv = new key_value{key_buffer, value_buffer};
+                headers.push_back(kv);
+                // std::cout << key_buffer << ": " << value_buffer << std::endl;
+                key_buffer = "";
+                value_buffer = "";
+            }
+            it++;
         } else if (*it == ':') {
             mode = 1;
         } else {
@@ -78,14 +97,19 @@ Response* string_to_response(std::string response) {
         }
         it++;
     }
-
     // Empty Line
 
     // Body
-    it++;
-    start = it;
+    int body_length = 0;
+    for (std::vector<key_value*>::iterator header = headers.begin(); header != headers.end(); header++) {
+        if ((*header)->key.compare("content-length") == 0) {
+            body_length = std::stoi((*header)->value);
+        }
+    }
+    int characters = 0;
     while (it != response.end()) {
         body += *it;
+        characters++;
         it++;
     }
 

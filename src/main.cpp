@@ -13,11 +13,11 @@ int main() {
     headers.push_back(new key_value{"Connection", "close"});
     Request r = Request("GET", "https://www.wikipedia.org/", headers, "");
     std::shared_ptr<Response> res = r.send_secure();
-    std::cout << "----------" << std::endl;
-    std::cout << res->version << " " << res->response_code << " " << res->message << std::endl;
-    for (std::vector<key_value*>::iterator it = res->headers.begin(); it != res->headers.end(); it++) {
-        std::cout << (*it)->key << ": " << (*it)->value << std::endl;
-    }
-    std::cout << "Body Length: " << res->body.length() << std::endl;
+    // std::cout << "----------" << std::endl;
+    // std::cout << res->version << " " << res->response_code << " " << res->message << std::endl;
+    // for (std::vector<key_value*>::iterator it = res->headers.begin(); it != res->headers.end(); it++) {
+    //     std::cout << (*it)->key << ": " << (*it)->value << std::endl;
+    // }
+    std::cout << res->body << std::endl;
     return 0;
 }
