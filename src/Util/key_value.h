@@ -1,6 +1,6 @@
 #include <string>
-#ifndef HTTP_hpp
-#define HTTP_hpp
+#ifndef key_value_h
+#define key_value_h
 
 /**
  * Since everything in an HTTP Header is just this form:

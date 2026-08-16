@@ -21,4 +21,3 @@ I found some information about parsing html and it involves much more than I act
 - [Tokenizing](https://www.w3.org/TR/2011/WD-html5-20110113/tokenization.html)
 
 I want to implement a subset of this functionality because it seems like this definition also inherently supports Javascript. I don't want to support Javascript right now.
-
