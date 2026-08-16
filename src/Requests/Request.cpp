@@ -1,105 +1,11 @@
-#ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x0600
-#endif
+#include "Sockets.hpp"
 
-#include <iostream>
+#include "Response.hpp"
+#include "Request.hpp"
+
 #include <string>
 #include <vector>
 #include "HTTP.hpp"
-#include "Request.hpp"
-
-// Since I'm writing this initially to run on Windows 10 that means that I need to use WinSock...
-// https://learn.microsoft.com/en-us/windows/win32/winsock/getting-started-with-winsock
-
-#include <winsock2.h>
-#include <ws2tcpip.h>
-
-// Make sure to link Ws2_32.lib when compiling
-boolean initialized_winsock = false;
-int initialize_winsock() {
-    WSADATA wsaData;
-    int iResult;
-
-    iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    if (iResult != 0) {
-       return iResult;
-    }
-    return 0;
-}
-
-SOCKET connect_to_url(std::string url, std::string port) {
-    struct addrinfo* result = NULL;
-    struct addrinfo* ptr = NULL;
-    struct addrinfo hints;
-
-    ZeroMemory(&hints, sizeof(hints));
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_protocol = IPPROTO_TCP;
-
-    int iResult = getaddrinfo(url.c_str(), port.c_str(), &hints, &result);
-
-    SOCKET connected_socket = INVALID_SOCKET;
-    ptr = result;
-    if (ptr == NULL) {
-        std::cout << "Invalid url: '" << url << ":" << port << "'" << std::endl;
-        return INVALID_SOCKET;
-    }
-    connected_socket = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
-    if (connected_socket == INVALID_SOCKET) {
-        WSACleanup();
-        freeaddrinfo(result);
-        return INVALID_SOCKET;
-    }
-
-    iResult = connect(connected_socket, ptr->ai_addr, (int)ptr->ai_addrlen);
-    if (iResult == SOCKET_ERROR) {
-        closesocket(connected_socket);
-        WSACleanup();
-        freeaddrinfo(result);
-        return INVALID_SOCKET;
-    }
-
-    freeaddrinfo(result);
-
-    if (connected_socket == INVALID_SOCKET) {
-        WSACleanup();
-        return INVALID_SOCKET;
-    }
-    return connected_socket;
-}
-
-int send_buffer(SOCKET socket, std::string buffer) {
-    int iResult = send(socket, buffer.c_str(), buffer.length(), 0);
-    if (iResult == SOCKET_ERROR) {
-        closesocket(socket);
-        WSACleanup();
-    }
-    return iResult;
-}
-
-int recieve_buffer(SOCKET socket, std::string* buffer) {
-    char temp_buffer[4096]; // 1 Page of memory
-    int iResult;
-    do {
-        iResult = recv(socket, temp_buffer, 4095, 0);
-        temp_buffer[4095] = '\0';
-        *buffer += temp_buffer;
-    } while (iResult > 0);
-    return buffer->length();
-}
-
-int close_socket(SOCKET socket) {
-    int iResult = shutdown(socket, SD_SEND);
-    if (iResult == SOCKET_ERROR) {
-        closesocket(socket);
-        WSACleanup();
-        return 1;
-    }
-    closesocket(socket);
-    WSACleanup();
-    return 0;
-}
 
 std::string request_to_string(Request* request) {
     std::string result = "";
@@ -125,75 +31,6 @@ std::string request_to_string(Request* request) {
     return result;
 }
 
-Response* string_to_response(std::string response) {
-
-    std::string version = "";
-    std::string response_buffer = "";
-    int response_code = 0;
-    std::string message = "";
-    std::vector<key_value*> headers;
-    std::string body = "";
-
-    // Start Line
-    std::string::iterator it = response.begin();
-    std::string::iterator start = it;
-    int spaces = 0;
-    while (*it != '\n') {
-        if (*it == ' ') {
-            spaces++;
-        } else {
-            if (spaces == 0) {
-                version += *it;
-            } else if (spaces == 1) {
-                response_buffer += *it;
-            } else {
-                message += *it;
-            }
-        }
-        it++;
-    }
-    response_code = std::stoi(response_buffer);
-
-    // Headers
-    it++;
-    start = it;
-    int newlines_in_sequence = 0;
-    std::string key_buffer = "";
-    std::string value_buffer = "";
-    int mode = 0;
-    while (newlines_in_sequence < 2) {
-        if (*it == '\n') {
-            mode = 0;
-            newlines_in_sequence++;
-            key_value* kv = new key_value{key_buffer, value_buffer};
-            headers.push_back(kv);
-            key_buffer = "";
-            value_buffer = "";
-        } else if (*it == ':') {
-            mode = 1;
-        } else {
-            if (mode == 0) {
-                key_buffer += *it;
-            } else if (mode == 1) {
-                value_buffer += *it;
-            }
-        }
-        it++;
-    }
-
-    // Empty Line
-
-    // Body
-    it++;
-    start = it;
-    while (it != response.end()) {
-        body += *it;
-        it++;
-    }
-
-    return new Response(version, response_code, message, headers, body);
-}
-
 /**
  * Simple Constructor for the Request class, this allows specification for all of the necessary fields of an HTTP request:
  * See this article for that specification https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Messages
@@ -206,8 +43,31 @@ Response* string_to_response(std::string response) {
 Request::Request(std::string method, std::string url,
     std::vector<key_value*> headers, std::string body) {
     this->method = method;
-    this->resource = url;
+    this->protocol = "";
+    this->host = "";
+    this->resource = "/";
+    int mode = 0;
+    for (std::string::iterator it = url.begin(); it != url.end(); ++it) {
+        if (mode == 0) {
+            if (*it == '/' && *(it + 1) == '/') {
+                mode = 1; // host
+                protocol += "//";
+                it++;
+            } else {
+                protocol += *it;
+            }
+        } else if (mode == 1) {
+            if (*it == '/') {
+                mode = 2; // resource
+            } else {
+                host += *it;
+            }
+        } else {
+            resource += *it;
+        }
+    }
     this->headers = std::vector<key_value*>();
+    this->headers.push_back(new key_value{"Host", this->host});
     this->body = body;
 
     // Copy the elements from the argument 'headers' to the local 'headers' field
@@ -224,12 +84,9 @@ Request::~Request() {
 }
 
 std::shared_ptr<Response> Request::send() {
-    if (!initialized_winsock) {
-        initialize_winsock();
-        initialized_winsock = true;
-    }
+    initialize_winsock();
     std::string port = "80";
-    SOCKET socket = connect_to_url(this->resource, port);
+    SOCKET socket = connect_to_url(this->protocol + this->host, port);
 
     std::string request_as_string = request_to_string(this);
     std::string response_as_string = "";
@@ -237,23 +94,28 @@ std::shared_ptr<Response> Request::send() {
     int send_result = send_buffer(socket, request_as_string);
     int result_bytes = recieve_buffer(socket, &response_as_string);
 
-    // std::cout << response_as_string << std::endl;
     Response* response = string_to_response(response_as_string);
 
     close_socket(socket);
     return std::shared_ptr<Response>(response);
 }
 
-// Main
+std::shared_ptr<Response> Request::send_secure() {
+    initialize_winsock();
+    SSL_CTX* ctx = initialize_openssl();
 
-int main() {
-    std::vector<key_value*> headers;
-    headers.push_back( new key_value{"Host", "www.google.com"});
-    headers.push_back(new key_value{"User-Agent", "JLBrowser/0.1"});
-    headers.push_back(new key_value{"Connection", "close"});
-    Request r = Request("GET", "www.google.com", headers, "");
-    std::shared_ptr<Response> res = r.send();
-    std::cout << res->version << " " << res->response_code << " " << res->message << std::endl;
-    std::cout << "Number of headers: " << res->headers.size() << std::endl;
-    return 0;
+    std::string port = "443";
+    SOCKET socket = connect_to_url(this->protocol + this->host, port);
+
+    SSL* ssl = perform_handshake(socket, ctx, this->protocol + this->host);
+
+    std::string request_as_string = request_to_string(this);
+    std::string response_as_string = "";
+
+    int send_result = secure_send(ssl, request_as_string);
+    int result_bytes = secure_recv(ssl, &response_as_string);
+    Response* response = string_to_response(response_as_string);
+
+    close_socket(socket);
+    return std::shared_ptr<Response>(response);
 }

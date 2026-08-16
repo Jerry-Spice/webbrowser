@@ -16,6 +16,8 @@
 class Request {
     public:
         std::string method;
+        std::string protocol;
+        std::string host;
         std::string resource;
         std::string version;
         std::vector<key_value*> headers;
@@ -40,6 +42,9 @@ class Request {
          * This is an asynchronous operation. It will block by default and returns a shared pointer to a Response obejct. See the Response.hpp file for more information
          */
         std::shared_ptr<Response> send();
+        std::shared_ptr<Response> send_secure();
 };
+
+std::string request_to_string(Request* request);
 
 #endif

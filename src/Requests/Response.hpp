@@ -20,4 +20,6 @@ class Response {
 
 };
 
+Response* string_to_response(std::string response);
+
 #endif
