@@ -39,6 +39,7 @@ class Doctype_Token : Token {
     public:
         Doctype_Token(std::string buffer);
 
+        bool validate();
         std::string name();
         std::string public_identifier();
         std::string system_identifier();
@@ -49,28 +50,32 @@ class Start_Tag_Token : Token {
     private:
         std::string _tag_name;
         bool _self_closing; // defaults to false
-        std::vector<key_value*> _atrributes;
+        std::vector<key_value*> _attributes;
 
     public:
         Start_Tag_Token(std::string buffer);
+        ~Start_Tag_Token();
 
+        bool validate();
         std::string tag_name();
         bool self_closing();
-        std::vector<key_value*> attribute();
+        std::vector<key_value*> attributes();
 };
 
 class End_Tag_Token : Token {
     private:
             std::string _tag_name;
             bool _self_closing; // defaults to false
-            std::vector<key_value*> _atrributes;
+            std::vector<key_value*> _attributes;
 
     public:
         End_Tag_Token(std::string buffer);
+        ~End_Tag_Token();
 
+        bool validate();
         std::string tag_name();
         bool self_closing();
-        std::vector<key_value*> attribute();
+        std::vector<key_value*> attributes();
 };
 
 class Comment_Token : Token {
@@ -80,6 +85,7 @@ class Comment_Token : Token {
     public:
         Comment_Token(std::string buffer);
 
+        bool validate();
         std::string data();
 };
 
@@ -90,14 +96,15 @@ class Character_Token : Token {
     public:
         Character_Token(std::string buffer);
 
+        bool validate();
         std::string data();
 };
 
 class End_of_File_Token : Token {
     public:
         End_of_File_Token();
+
+        bool validate();
 };
-
-
 
 #endif
